@@ -8,7 +8,7 @@ The project uses **Flickr8k**, where each image is paired with five human-writte
 - text encoding with a CLIP text encoder;
 - image-to-text retrieval over free-form captions;
 - text-to-image retrieval over paired images;
-- symmetric Recall@K evaluation;
+- bidirectional Recall@K evaluation;
 - free-form text search with FAISS; and
 - qualitative retrieval output as an image montage.
 
@@ -19,15 +19,25 @@ The implementation keeps the pipeline compact and reproducible while covering th
 ```text
                          shared CLIP embedding space
 
-image --> CLIP vision encoder --> normalized embedding ----┐
-                                                           | cosine similarity
-text  --> CLIP text encoder   --> normalized embedding ----┘
+image --> CLIP vision encoder --> normalized image embeddings ----\
+                                                                   |--> cosine similarity matrix
+text  --> CLIP text encoder   --> normalized text embeddings  -----/
+                                                                   |
+                                                                   +--> image-to-text Recall@K
+                                                                   |
+                                                                   +--> text-to-image Recall@K
+
+normalized image embeddings --> FAISS image index
+                                      ^
                                       |
-                                      +--> symmetric Recall@K evaluation
-                                      +--> FAISS text-to-image search
+normalized text query ---------------+
+                                      |
+                                      +--> top-K retrieved images
 ```
 
 CLIP is pretrained with a contrastive objective that places matching images and text close together in a shared representation space. This project uses the pretrained representation directly rather than retraining CLIP from scratch.
+
+For evaluation, similarities between all image and caption embeddings form a cross-modal similarity matrix used for both retrieval directions. For free-form search, normalized image embeddings are stored in a FAISS index and the normalized text embedding is used as the query.
 
 ## Dataset
 
@@ -145,7 +155,7 @@ Natural-language queries can retrieve relevant images without a task-specific cl
 
 Because every image has five valid captions, image-to-text evaluation supports multiple semantically correct textual matches rather than requiring one template prompt.
 
-### 5. Symmetric retrieval evaluation
+### 5. Bidirectional retrieval evaluation
 
 Both image-to-text and text-to-image performance are measured, making it possible to assess the quality of the shared embedding space in both directions.
 
